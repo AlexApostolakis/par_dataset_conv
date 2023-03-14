@@ -41,6 +41,18 @@ cdef void setgridxy(int i, long [:, :] id2xy_mv, float [:, :, :] grid_mv, float 
             p2 = atan(p)
             intensive-=1
 
+'''
+Tablular to datacube conversion
+nt : number of threads
+tab: array with tabular dataset
+firstid: minimum cell id existing in tabular dataset  
+rdiff: difference between consecutive cell ids in acolumn
+gW: Grid Width
+gH: Grid Height
+sched: OpenMP schedule of parallel execution
+chunks: size of chunk for parallel execution
+intensive: grade of additional intesiveness in CPU calculations for experimentation, 0 none, -1 skip memory assignment
+'''
 # @cython.wraparound(False)
 @cython.boundscheck(False)
 # @cython.nonecheck(False)
