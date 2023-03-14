@@ -27,25 +27,6 @@ cdef long get_grid_y(long _id, long firstid, long rdiff) nogil:
     row = int((_id-firstid)/rdiff) #row
     return row
 
-
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.nonecheck(False)
-def npapplypar(int nt, cnp.ndarray[INT32_t, ndim=1] ids, long firstid, long rdiff):
-    cdef int i, M, res
-    M = ids.shape[0]
-    id2xy = view.array(shape=(M,2), itemsize=sizeof(long), format="l")
-    cdef long [:, :] id2xy_mv = id2xy
-    cdef int [:] ids_mv = ids
-    for i in prange(M, num_threads=nt, nogil=True):
-        id2xy_mv[i,1]=get_grid_y(ids_mv[i], firstid, rdiff)
-        id2xy_mv[i,0]=get_grid_x(ids_mv[i], firstid, rdiff, id2xy_mv[i,1])
-    id2xypy=np.asarray(id2xy_mv)
-    return id2xypy
-
-#cdef float some_function_not_requiring_gil(float[:] x) nogil:
-#    return x[0]
-
 @cython.boundscheck(False)
 cdef void setgridxy(int i, long [:, :] id2xy_mv, float [:, :, :] grid_mv, float [:, :] ids_mv, long firstid, long rdiff, int intensive=0) nogil:
     cdef float p
@@ -83,10 +64,10 @@ def fillcube(int nt, cnp.ndarray[FLOAT32_t, ndim=2] tab, long firstid, long rdif
 
     if chunks == 'auto': chunk=autochunk
     else: chunk=chunks
+
+    # for some strange cython reason the schedule parameter must be given as literal, it cannot be passed as parameter
     if sched=='static':
         for i in prange(M, num_threads=nt, nogil=True, schedule='static', chunksize=chunk):
-        #with gil:
-        #    print(ids_mv[i,0])
             setgridxy(i, id2xy_mv, grid_mv, ids_mv, firstid1, rdiff1, intensiveness)
     elif sched == 'guided':
         for i in prange(M, num_threads=nt, nogil=True, schedule='guided'):
