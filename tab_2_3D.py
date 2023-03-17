@@ -16,7 +16,9 @@ from functools import partial
 import matplotlib.pyplot as plt
 import mpl_toolkits.axes_grid1 as axes_grid1
 
-
+'''
+get grid parameters
+'''
 def gridinfo():
     rdiff = 2227
     minnorth = 333237
@@ -29,57 +31,18 @@ def gridinfo():
     gridheight = math.ceil((maxsouth - firstid) / rdiff)
     return rdiff, firstid, gridwidth, gridheight
 
-
+'''
+walk folders to find all dataset files
+'''
 def walkmonthdays(sfolder):
-    # sfolder = '/data2/ffp/datasets/daily/2015/08'
-    exfeat = ["id", "firedate"]
     dayfiles = []
     for dayf in fileutils.find_files(sfolder, '*_norm.csv', listtype="walk"):
         dayfiles += [dayf]
-        # print(fday)
-        '''
-        try:
-            #fday = '/data2/ffp/datasets/daily/2021/08/20210804_norm.csv'
-            creategrid_xs(fday, rdiff, firstid, gridwidth, gridheight)
-        except:
-            print("Fail to convert %s"%fday)
-            traceback.print_exc()
-        '''
     return dayfiles
 
-
-def get_grid_xy(firstid, rdiff, _id, ):
-    row = int((_id - firstid) / rdiff)
-    col = int(_id - firstid - rdiff * row)
-    return row, col
-
-
-def assignrow(ggrid, tabrow):
-    row, col = get_xy(tabrow[0])
-    ggrid[row, col, :] = tabrow[:]
-
-
-def assignrowshared(ggrid_sh, grid_shape, tabrows):
-    for i in range(tabrows.shape[0]):
-        tabrow = tabrows[i, :]
-        try:
-            row, col = get_xy(tabrow[0])
-            idx = row * grid_shape[1] * grid_shape[2] + col * grid_shape[2]
-            ggrid_sh[idx:idx + grid_shape[2]] = tabrow[:]
-        except:
-            "Error row: %s\n" % i + traceback.print_exc()
-
-
-def assignrowshared2(ggrid_sh, tabrows):
-    for i in range(tabrows.shape[0]):
-        tabrow = tabrows[i, :]
-        try:
-            row, col = get_xy(tabrow[0])
-            ggrid_sh[row, col] = tabrow[:]
-            # print(row, col)
-        except:
-            "Error row: %s\n" % i + traceback.print_exc()
-
+'''
+load csv tabular dataset, convert to 3D array, write file as netcdf
+'''
 def creategrid_xs_small(rdiff, firstid, gridwidth, gridheight, dayfile, pcpus, ccpus, queue):
     #print(rdiff, firstid, gridwidth, gridheight, dayfile, pcpus, ccpus)
     try:
@@ -131,6 +94,11 @@ def new_process(creategrid, proclist, day, pthreads, cthreads):
     proclist += [{'proc': Process(target=creategrid, args=(day, pthreads, cthreads, q)), 'queue': q}]
     proclist[-1]['proc'].start()
 
+'''
+execute parallel conversion end-to-end for the files in 'days' list 
+using 'pthreads' number of python threads for the end-to-end process
+and 'cthreads' number of cython threads for the convertion in memory process
+'''
 def create_xs_files(creategrid, days, pthreads, cthreads):
     procs = []
     proctimetotal = 0
@@ -160,39 +128,12 @@ def create_xs_files(creategrid, days, pthreads, cthreads):
             new_process(creategrid, procs, d, pthreads, cthreads)
     return proctimetotal
 
-
-def plotscatter(atimes, typ=0):
-    for y in range(1, atimes.shape[1]):
-        plt.scatter(range(1, atimes.shape[0]), [y] * (atimes.shape[0] - 1), s=atimes[1:, y, typ])
-    plt.show()
-
-
-def plotheatmap(atimes, title1='Wall time', title2='Process (CPU) time'):
-    fig = plt.figure(figsize=(12, 6))
-    grid = axes_grid1.AxesGrid(
-        fig, 111, nrows_ncols=(1, 2), axes_pad=0.5, cbar_location="right",
-        cbar_mode="each", cbar_size="7%", cbar_pad="5%", )
-    data = atimes[1:, 1:, 0]
-    im0 = grid[0].imshow(data, cmap='turbo', interpolation='None')
-    grid.cbar_axes[0].colorbar(im0)
-    # Show all ticks and label them with the respective list entries
-    grid[0].set_xticks(np.arange(data.shape[1]), labels=np.arange(1, data.shape[1] + 1))
-    grid[0].set_yticks(np.arange(data.shape[0]), labels=np.arange(1, data.shape[0] + 1))
-    grid[0].set_ylabel('# cython threads')
-    grid[0].set_xlabel('# python threads')
-    grid[0].title.set_text(title1)
-    # ax.set_yticks(np.arange(len(vegetables)), labels=vegetables)
-    if not title2 is None:
-        data = atimes[1:, 1:, 1]
-        im1 = grid[1].imshow(data, cmap='turbo', interpolation='None')
-        grid[1].set_xticks(np.arange(data.shape[1]), labels=np.arange(1, data.shape[1] + 1))
-        grid[1].set_xlabel('# python threads')
-        grid[1].title.set_text(title2)
-        grid.cbar_axes[1].colorbar(im1)
-
+'''
+execute parallel conversion end-to-end for the files in 'days' list 
+using 'pthreads' number of python threads for the end-to-end process
+and 'cthreads' number of cython threads for the convertion in memory process
+'''
 def dataset_conv_opt(creategrid, maxcpus, dayfiles):
-    nruns=1
-    totalrun=0
     ctr=range(1,maxcpus+1,1)
     ptr=range(1,maxcpus+1,1)
     atimes2=np.zeros((max(list(ctr))+1,max(list(ptr))+1,2))
@@ -208,23 +149,9 @@ def dataset_conv_opt(creategrid, maxcpus, dayfiles):
 
 #initialize
 rdiff, firstid, gridwidth, gridheight = gridinfo()
-get_xy=partial(get_grid_xy, firstid, rdiff)
 dayfiles=walkmonthdays('/data2/ffp/datasets/daily/')
-#fday='/data2/ffp/datasets/daily/2021/08/20210823_norm.csv'
-fday='/data2/ffp/datasets/daily/2015/09/20150923_norm.csv'
-dt_df = dt.fread(fday)
-firstfeat=dt_df.names.index('id')
-npday = dt_df[:, firstfeat:].to_numpy(dt.float32)
 maxcpus=cpu_count()
-featn = len(dt_df[:, firstfeat:].names)
-ggrid = np.zeros((gridwidth, gridheight, featn))
-ggrid[:,:]=np.nan
-assignr=partial(assignrow, ggrid)
 print('max cpu count %s'%maxcpus)
-print('array rows: %s'%npday.shape[0])
-
 creategrid = partial(creategrid_xs_small, rdiff, firstid, gridwidth, gridheight)
 atimes2=dataset_conv_opt(creategrid, maxcpus, dayfiles)
-np.save('conv_thread_eq_files_03',atimes2)
-
-#create_xs_files(creategrid, dayfiles[:1], 1, 2)
+np.save('conv_thread_eq_files_04',atimes2)
